@@ -4,10 +4,8 @@ addprocs(3)
 
 @everywhere begin
     workloads = fill(0.0, nprocs() + 1) 
-    master = nprocs() + 1
-    leader = 2
+    global leader = nprocs()
     currentNodeElection = false
-    flag = 0
 end
 
 @everywhere function setValue(idx, cont)
@@ -21,19 +19,20 @@ end
     return currentIdx+1
 end
 
+@everywhere function changeLeader(currentLeader)
+    global currentNodeElection = false
+    global leader = currentLeader
+end
+
 @everywhere function endElection(currentLeader)
     for i in workers()
-        @spawnat i begin
-            global currentNodeElection = false
-            global leader = currentLeader
-        end
+        @spawnat i changeLeader(currentLeader)
     end
 end
 
 @everywhere function election(currentIdx, currentWorkload, currentLeader)
     
     next = nextCalc(currentIdx)
-    global leader = currentLeader
     global currentNodeElection = true
     if currentIdx != currentLeader
         if workloads[currentIdx] < currentWorkload
@@ -46,9 +45,7 @@ end
     elseif currentIdx == currentLeader
         @spawnat 1 println("New leader elected! Worker ", currentIdx)
 
-        endElection(currentLeader)
-
-        return 0
+        endElection(currentIdx)
     end
 end
 
@@ -62,14 +59,19 @@ end
 
 @everywhere function printWorkloads(idAtual, workloadsAux)
 
-    #println("Workload from Worker ", idAtual, ": ", workloads[2:nprocs()])
     ans = string("Workload from Worker ", idAtual, ": ");
-    ans *= string("[ ")
-    for i in nprocs()
-        ans *= string(workloadsAux[i], ", ")
-        #if(i == leader) ans *= string("{ ", workloadsAux[i], " }, ")
-        #else ans *= string(workloadsAux[i], ", ")
-        #end
+    ans *= string("[")
+
+    for i in 2:nprocs()
+        if(i == leader) 
+            ans *= string("{ ", workloadsAux[i], " }")
+        else 
+            ans *= string(workloadsAux[i])
+        end
+
+        if(i <= nworkers()) 
+            ans *= string(", ")
+        end
     end
     ans *= string("]")
 
@@ -79,7 +81,6 @@ end
 @everywhere function main()
 
     idAtual = myid()
-    global currentNodeElection = false
     while true
         atual = round(rand(), digits = 1)
 
@@ -87,8 +88,8 @@ end
             @spawnat i setValue(idAtual, atual)
         end
         sleep(2)
-        @spawnat 1  println(printWorkloads(idAtual, workloads))
 
+        remotecall(println, 1, printWorkloads(idAtual, workloads))
         checkWorkload(idAtual, workloads[idAtual]);
     end
 end
