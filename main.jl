@@ -4,14 +4,16 @@ addprocs(3)
 
 @everywhere begin
     workloads = fill(0.0, nprocs() + 1) 
-    global leader = nprocs()
+    leader = nprocs()
     currentNodeElection = false
 end
 
+#Set workloads value
 @everywhere function setValue(idx, cont)
     global workloads[idx] = cont
 end
 
+#Calculates next worker's id
 @everywhere function nextCalc(currentIdx)
     if(currentIdx == nprocs()) 
         return 2
@@ -19,6 +21,7 @@ end
     return currentIdx+1
 end
 
+#If currentNodeElection is true, updates leader to currentLeader and currentNodeElection to false
 @everywhere function changeLeader(currentLeader)
     if(currentNodeElection == true)
         global currentNodeElection = false
@@ -26,6 +29,7 @@ end
     end
 end
 
+#Updates the leader value in each worker
 @everywhere function endElection(currentLeader)
     for i in workers()
         @spawnat i changeLeader(currentLeader)
