@@ -20,8 +20,10 @@ end
 end
 
 @everywhere function changeLeader(currentLeader)
-    global currentNodeElection = false
-    global leader = currentLeader
+    if(currentNodeElection == true)
+        global currentNodeElection = false
+        global leader = currentLeader
+    end
 end
 
 @everywhere function endElection(currentLeader)
@@ -50,6 +52,12 @@ end
 end
 
 @everywhere function checkWorkload(idx, currentWorkload)
+
+    for i in workers()
+        if(@fetchfrom i currentNodeElection == true) return 0
+        end
+    end
+
     if(workloads[leader] >= 0.8 && workloads[idx] < 0.8 && currentNodeElection == false)
         global next = nextCalc(idx)
         global currentNodeElection = true
