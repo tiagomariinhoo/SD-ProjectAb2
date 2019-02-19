@@ -2,18 +2,22 @@ using Distributed
 
 addprocs(3)
 
+#Declarations, workloads, leader and currentWorkerElection
+#The currentWorkerElection is false because in the beginning
+#no worker is participating in the election
 @everywhere begin
-    workloads = fill(0.0, nprocs() + 1) 
+    workloads = fill(0.0, nprocs()) 
     leader = nprocs()
-    currentNodeElection = false
+    currentWorkerElection = false
 end
 
-#Set workloads value
+#Updates workloads value in worker with id "idx"
 @everywhere function setValue(idx, cont)
     global workloads[idx] = cont
 end
 
 #Calculates next worker's id
+#If CurrentIdx == nprocs (4), idx is 2 (next worker)
 @everywhere function nextCalc(currentIdx)
     if(currentIdx == nprocs()) 
         return 2
@@ -21,14 +25,18 @@ end
     return currentIdx+1
 end
 
-#If currentNodeElection is true, updates leader to currentLeader and currentNodeElection to false
+#If currentWorkerElection is true, updates leader to currentLeader
+#and currentWorkerElection to false
+#All workers are set to false to indicate that the election is over
 @everywhere function changeLeader(currentLeader)
-    if(currentNodeElection == true)
-        global currentNodeElection = false
+    if(currentWorkerElection == true)
+        global currentWorkerElection = false
         global leader = currentLeader
     end
 end
 
+#If currentWorkerElection is true, updates leader to
+#currentLeader and currentWorkerElection to false
 #Updates the leader value in each worker
 @everywhere function endElection(currentLeader)
     for i in workers()
@@ -36,10 +44,16 @@ end
     end
 end
 
+#Run the ring-based election algorithm
+#currentIdx -> Former worker Id
+#currentWorkload -> The lowest workload so far (from the leader)
+#currentLeader -> Leader Id so far
 @everywhere function election(currentIdx, currentWorkload, currentLeader)
-    
+
     next = nextCalc(currentIdx)
-    global currentNodeElection = true
+
+    global currentWorkerElection = true
+    
     if currentIdx != currentLeader
         if workloads[currentIdx] < currentWorkload
             @spawnat next election(next, workloads[currentIdx], currentIdx)
@@ -55,31 +69,34 @@ end
     end
 end
 
+#Check if another election is already happening and
+#check if the condition is met to run the election
 @everywhere function checkWorkload(idx, currentWorkload)
 
+    #If an election is already taking place, the function ends
+    #This is becaus if an election has already taken place
+    #All currentWorkerElection are set to false (endElection -> changeLeader) 
     for i in workers()
-        if(@fetchfrom i currentNodeElection == true) return 0
+        if(@fetchfrom i currentWorkerElection == true) return 0
         end
     end
 
-    if(workloads[leader] >= 0.8 && workloads[idx] < 0.8 && currentNodeElection == false)
+    #Condition to run the election
+    if(workloads[leader] >= 0.8 && workloads[idx] < 0.8 && currentWorkerElection == false)
         global next = nextCalc(idx)
-        global currentNodeElection = true
+        global currentWorkerElection = true
         @spawnat next election(next, currentWorkload, idx)
     end
 end
 
+#Function to form the output string
 @everywhere function printWorkloads(idAtual, workloadsAux)
 
     ans = string("Workload from Worker ", idAtual, ": ");
     ans *= string("[")
 
     for i in 2:nprocs()
-        if(i == leader) 
-            ans *= string("{ ", workloadsAux[i], " }")
-        else 
             ans *= string(workloadsAux[i])
-        end
 
         if(i <= nworkers()) 
             ans *= string(", ")
@@ -90,6 +107,9 @@ end
     return ans
 end
 
+#Function "main", where are generated the new values
+#for each worker, called the function of setting the values
+#and print function
 @everywhere function main()
 
     idAtual = myid()
@@ -106,7 +126,7 @@ end
     end
 end
 
-#workers porque não inclue o pid 1
+#running the function main in each worker
 for i in workers()
     @spawnat i main()
 end
