@@ -5,6 +5,7 @@ addprocs(3)
 #Declarations, workloads, leader and currentWorkerElection
 #The currentWorkerElection is false because in the beginning
 #no worker is participating in the election
+#the leader begins with nrpocs (4 in this case)
 @everywhere begin
     workloads = fill(0.0, nprocs()) 
     leader = nprocs()
@@ -90,9 +91,9 @@ end
 end
 
 #Function to form the output string
-@everywhere function printWorkloads(idAtual, workloadsAux)
+@everywhere function printWorkloads(id, workloadsAux)
 
-    ans = string("Workload from Worker ", idAtual, ": ");
+    ans = string("Workload from Worker ", id, ": ");
     ans *= string("[")
 
     for i in 2:nprocs()
@@ -112,19 +113,21 @@ end
 #and print function
 @everywhere function main()
 
-    idAtual = myid()
+    idCur = myid()
     while true
-        atual = round(rand(), digits = 1)
+        cont = round(rand(), digits = 1)
 
         for i in workers()
-            @spawnat i setValue(idAtual, atual)
+            @spawnat i setValue(idCur, cont)
         end
         sleep(2)
 
-        remotecall(println, 1, printWorkloads(idAtual, workloads))
-        checkWorkload(idAtual, workloads[idAtual]);
+        remotecall(println, 1, printWorkloads(idCur, workloads))
+        checkWorkload(idCur, workloads[idCur]);
     end
 end
+
+println("Leader: ", nprocs())
 
 #running the function main in each worker
 for i in workers()
