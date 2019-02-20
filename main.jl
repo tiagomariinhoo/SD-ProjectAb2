@@ -27,7 +27,8 @@ end
 end
 
 #If currentWorkerElection is true, updates leader to currentLeader
-#and currentWorkerElection to false
+#and currentWorkerElection to false 
+#(indicating that they are not participating in an election)
 #All workers are set to false to indicate that the election is over
 @everywhere function changeLeader(currentLeader)
     if(currentWorkerElection == true)
@@ -36,8 +37,6 @@ end
     end
 end
 
-#If currentWorkerElection is true, updates leader to
-#currentLeader and currentWorkerElection to false
 #Updates the leader value in each worker
 @everywhere function endElection(currentLeader)
     for i in workers()
@@ -129,7 +128,6 @@ end
 
 println("Leader: ", nprocs())
 
-#running the function main in each worker
 for i in workers()
     @spawnat i main()
 end
