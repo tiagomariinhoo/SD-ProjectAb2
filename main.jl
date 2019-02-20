@@ -4,7 +4,7 @@ addprocs(3)
 
 #Declarations, workloads, leader and currentWorkerElection
 #The currentWorkerElection is false because in the beginning
-#no worker is participating in the election
+#no worker is participating in the election.
 #the leader begins with nrpocs (4 in this case)
 @everywhere begin
     workloads = fill(0.0, nprocs()) 
